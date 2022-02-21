@@ -1,0 +1,368 @@
+---
+title: "cluster_profiler"
+author: "Cy Chittenden"
+date: "7/21/2021"
+output: html_document
+---
+
+```{#r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("clusterProfiler")
+BiocManager::install("DOSE")
+BiocManager::install("goseq")
+BiocManager::install("org.Hs.eg.db")
+
+
+library(edgeR)
+library(goseq)
+library(clusterProfiler)
+library(DOSE)
+library("pathview")
+library(enrichplot)
+library(stringr)
+library(org.Hs.eg.db)
+library(gt)
+```
+
+
+#Import in dataset
+```{r}
+datasheet <- "NSC.WT.sample_ID_NS_EGS_vs_NS_uninf.txt"
+
+#choose data set you want to use
+data <- read.csv(file = datasheet, sep="", header = TRUE)
+data <- cbind(GeneID = rownames(data), data)
+rownames(data) <- 1:nrow(data)
+
+```
+
+#Set start and end indexes of ENS IDs in dataset
+```{r}
+barrier <- str_detect(data$GeneID, "ENS")
+ENS_Start_idx <- min(which(barrier == TRUE)) -1
+ENS_End_idx <- max(which(barrier == TRUE))
+```
+
+#Convert Ensembl ids to gene ids
+```{r}
+converter_table <- read.csv(file = "ensembl2geneID.txt", sep="")
+
+# create 2 data frames
+
+
+
+x1 <-data.frame(ensemble=c(data$GeneID[ENS_Start_idx:ENS_End_idx]), genotype=c(data$Gene_Name[ENS_Start_idx:ENS_End_idx]))
+
+x2 <-data.frame(ensemble=c(converter_table$Ensembl_ID), other_id=c(converter_table$Gene_ID))
+
+ 
+
+# print out data.frame
+
+head(x1)
+
+head(x2)
+
+ 
+
+# generate an index of the ensembl_ids of x1 in x2
+
+idx <- match(x1$ensemble, x2$ensemble)
+
+ 
+
+# use the index to replace the ensembl IDs in x1 with the other_ids from x2. If an element from x1 is missing from x2 that element will be replaced by a <NA>
+
+x1$ensemble <- x2[idx,"other_id"]
+
+```
+#combine vectors
+```{r}
+
+
+#combine vectors
+gID <- c(data$GeneID[1:(ENS_Start_idx-1)], x1$ensemble)
+
+```
+
+```{r}
+#Add gID column to dataset
+new_data <- cbind(data, all_IDS = gID)
+
+#set start and end row and column for L2FC
+OVERgeneList <- new_data$log2FoldChange
+
+#set start and end row and column for gene ID
+names(OVERgeneList) <- as.character(gID)
+
+#Sort by decreasing l2fc
+OVERgeneList <- sort(OVERgeneList, decreasing = TRUE)
+
+# Extract significant results (padj < 0.05)
+OVER_sig_genes_df <- subset(new_data, padj < 0.05)
+
+# From significant results, we want to filter on log2fold change
+OVER_genes <- OVER_sig_genes_df$log2FoldChange
+
+# Name the vector
+names(OVER_genes) <- OVER_sig_genes_df$all_IDS
+
+# omit NA values
+OVER_genes <- na.omit(OVER_genes)
+
+# filter on min log2fold change (log2FoldChange > 1)
+OVER_genes <- names(OVER_genes)[abs(OVER_genes) > 1]
+
+#genes is a vector of genes in the dataset that have padj<0.05 and abs(l2fc) > 1
+
+#decreasing order of OVER_genes
+OVER_genes_decreasing <- sort(OVER_genes, decreasing = TRUE)
+
+#KEGG Stuff
+KEGG_OVER_genes <- OVER_sig_genes_df$log2FoldChange[abs(OVER_sig_genes_df$log2FoldChange) > 1]
+names(KEGG_OVER_genes) <- OVER_genes
+
+
+
+
+#Make background genes (universe) a list of genes in the dataset that have padj values (aka any genes with padj < some very high #)
+background_genes_df <- subset(new_data, padj < 1e+10)
+background_genes_vec <- background_genes_df$all_IDS
+
+#UPDATE Hernan says to use gID for the universe, even if some of those genes don't have padj data. So don't use background_genes_vec for universe. 
+
+```
+
+
+
+#GO Overrepresentation analysis
+```{r}
+go_enrich_BP <- enrichGO(gene = OVER_genes,
+                      universe = gID,
+                      OrgDb = org.Hs.eg.db, 
+                      keyType = 'ENTREZID',
+                      readable = T,
+                      ont = "BP",
+                      pvalueCutoff = 0.05, 
+                      qvalueCutoff = 0.10, 
+                      pAdjustMethod = "BH")
+
+go_enrich_MF <- enrichGO(gene = OVER_genes,
+                      universe = gID,
+                      OrgDb = org.Hs.eg.db, 
+                      keyType = 'ENTREZID',
+                      readable = T,
+                      ont = "MF",
+                      pvalueCutoff = 0.05, 
+                      qvalueCutoff = 0.10, 
+                      pAdjustMethod = "BH")
+
+go_terms_BP <- data.frame(go_enrich_BP$Description)
+go_terms_MF <- data.frame(go_enrich_MF$Description)
+
+```
+
+#Table for GO Enrichment
+```{#r}
+basicDF <- data.frame(ID = go_enrich_BP$ID, Des = go_enrich_BP$Description, GR = go_enrich_BP$GeneRatio, BR= go_enrich_BP$BgRatio, pvalue = go_enrich_BP$pvalue, padj = go_enrich_BP$p.adjust, qvalue = go_enrich_BP$qvalue,  count = go_enrich_BP$Count)
+niceTable <- gt(basicDF[60:88,])%>%
+    tab_header(title = "GO Enrichment For NSC RAY WT") %>%
+    cols_label(ID = "GO ID", Des = "Description", GR = "Gene Ratio", BR = "Bg Ratio", pvalue = "p-value", padj = "adj. p-value", qvalue = "qvalue", count = "Gene Count")
+    
+niceTable
+```
+
+
+```{#r}
+go_enrich_CC <- enrichGO(gene = OVER_genes,
+                      universe = gID,
+                      OrgDb = org.Hs.eg.db, 
+                      keyType = 'ENTREZID',
+                      readable = T,
+                      ont = "CC",
+                      pvalueCutoff = 0.05, 
+                      qvalueCutoff = 0.10, 
+                      pAdjustMethod = "BH")
+
+
+go_terms_CC <- data.frame(go_enrich_CC$Description)
+```
+
+
+
+
+#DO Over-representation analysis
+```{#r}
+
+DO_enrich <- enrichDO(gene          = OVER_genes,
+              ont           = "DO",
+              pvalueCutoff  = 0.05,
+              pAdjustMethod = "BH",
+              universe      = gID,
+              minGSSize     = 5,
+              maxGSSize     = 3000,
+              qvalueCutoff  = 0.05,
+              readable      = FALSE)
+
+do_terms <- data.frame(DO_enrich$Description)
+```
+
+
+
+#Data Visualization
+
+#Dot Plot
+```{#r}
+#GO Terms chosen based on relatedness to epilepsy
+dotplot(go_enrich_BP, showCategory = go_enrich_BP$Description[c(70, 84, 137, 175, 184, 190, 200, 201, 209, 210, 224, 226, 232, 238, 262, 267, 279, 291, 315, 342, 346, 349, 353, 359, 396, 494)], font.size = 10, x = "p.adjust", color = "qvalue", title = "Enriched GO Terms for NSC RH Strain")
+#png(filename = "Enriched GO Terms for NSC RH Strain.png", width = 480, height = 600)
+
+
+```
+#Gene-concept network
+```{#r}
+egox <- setReadable(go_enrich_BP, 'org.Hs.eg.db', 'ENTREZID')
+p1 <- cnetplot(egox, foldChange=OVER_genes, showCategory = go_enrich_BP$Description[c(260, 259, 257, 248)], layout = "circle", cex_label_category = 0.7, colorEdge = TRUE, cex_label_gene = 0.5)
+p1
+
+
+```
+
+
+
+
+
+#KEGG
+```{r}
+kegg_enrich <- enrichKEGG(gene  = OVER_genes,
+                          pAdjustMethod = "BH",
+                 universe = gID,
+                 organism     = 'hsa',
+                 pvalueCutoff = 0.05)
+
+KE <- data.frame(kegg_enrich$Description)
+```
+
+#Table for KEGG Enrichment
+```{r}
+basicKEGGDF <- data.frame(ID = kegg_enrich$ID, Des = kegg_enrich$Description, GR = kegg_enrich$GeneRatio, BR= kegg_enrich$BgRatio, pvalue = kegg_enrich$pvalue, padj = kegg_enrich$p.adjust, qvalue = kegg_enrich$qvalue,  count = kegg_enrich$Count)
+niceTable2 <- gt(basicKEGGDF)%>%
+    tab_header(title = "KEGG Enrichment For NSC RAY WT") %>%
+    cols_label(ID = "KEGG ID", Des = "Description", GR = "Gene Ratio", BR = "Bg Ratio", pvalue = "p-value", padj = "adj. p-value", qvalue = "qvalue", count = "Gene Count")
+    
+niceTable2
+
+```
+
+
+
+
+
+
+```{r}
+kegg_limit <- as.integer(max(abs(OVER_sig_genes_df$log2FoldChange)))
+
+if (kegg_limit <=20){
+    kegg_limit <- as.integer(max(abs(OVER_sig_genes_df$log2FoldChange)))
+}else{
+    kegg_limit <- (as.integer(max(abs(OVER_sig_genes_df$log2FoldChange)) / 2)) 
+}
+hsa04720 <- pathview(gene.data  = KEGG_OVER_genes,
+                     pathway.id = "hsa04720",
+                     species    = "hsa",
+                     low = list(gene = "red"),
+                     mid = list(gene = "gray"),
+                     high = list(gene = "green"),
+                     bins = list(gene = 2 * kegg_limit, cpd = 1),
+                
+                     limit      = list(gene= as.integer(max(abs(OVER_sig_genes_df$log2FoldChange))), cpd=1))
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

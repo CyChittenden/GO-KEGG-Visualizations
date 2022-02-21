@@ -1,0 +1,362 @@
+---
+title: "Pheatmap"
+author: "Cy Chittenden"
+date: "8/16/2021"
+output: html_document
+---
+```{r}
+
+ 
+# load package
+library(pheatmap)
+library(gt)
+library(dplyr)
+
+
+
+```
+
+#Importing all significant datasets
+```{r}
+#Datasets
+
+#MM6 Knockouts
+DS1 <- read.csv(file = "MM6.GRA1.sample_ID_M_GRA1_vs_M_PRU_ku.txt", sep="")
+DS2 <- read.csv(file = "MM6.GRA1.sample_ID_M_uninf_vs_M_PRU_ku.txt", sep="")
+DS3 <- read.csv(file = "MM6.GRA10.sample_ID_M_GRA10_teton_vs_M_GRA10_tetoff.txt", sep="")
+DS4 <- read.csv(file = "MM6.GRA10.sample_ID_M_uninf_vs_M_GRA10_tetoff.txt", sep="")
+DS5 <- read.csv(file = "MM6.GRA15.sample_ID_M_GRA15_ctr_vs_M_GRA15.txt", sep="")
+DS6 <- read.csv(file = "MM6.GRA15.sample_ID_M_uninf_vs_M_GRA15.txt", sep="")
+DS7 <- read.csv(file = "MM6.ROP5.sample_ID_M_ROP5_vs_M_ROP5_ctr.txt", sep="")
+DS8 <- read.csv(file = "MM6.ROP5.sample_ID_M_uninf_vs_M_ROP5_ctr.txt", sep="")
+DS9 <- read.csv(file = "MM6.RPS13.2.sample_ID_M_RPS13_tetoff_vs_M_RPS13_teton.txt", sep="")
+DS10 <- read.csv(file = "MM6.RPS13.2.sample_ID_M_uninf_vs_M_RPS13_teton.txt", sep="")
+
+#MM6 WT
+DS11 <- read.csv(file = "MM6.WT.sample_ID_M_EGS_vs_M_uninf.txt", sep="")
+DS12 <- read.csv(file = "MM6.WT.sample_ID_M_GT1_vs_M_uninf.txt", sep="")
+DS13 <- read.csv(file = "MM6.WT.sample_ID_M_ME49_vs_M_uninf.txt", sep="")
+DS14 <- read.csv(file = "MM6.WT.sample_ID_M_PBr_vs_M_uninf.txt", sep="") #BAD
+DS15 <- read.csv(file = "MM6.WT.sample_ID_M_PRU_ku_vs_M_uninf.txt", sep="")
+DS16 <- read.csv(file = "MM6.WT.sample_ID_M_RAY_vs_M_uninf.txt", sep="") #BAD
+DS17 <- read.csv(file = "MM6.WT.sample_ID_M_RH_vs_M_uninf.txt", sep="")
+DS18 <- read.csv(file = "MM6.WT.sample_ID_M_RUB_vs_M_uninf.txt", sep="") #BAD
+DS19 <- read.csv(file = "MM6.WT.sample_ID_M_VEG_vs_M_uninf.txt", sep="") #BAD
+
+#NSC Knockouts
+DS20 <- read.csv(file = "NNS.GRA15.sample_ID_NS_GRA15_vs_NS_GRA15_ctr.txt", sep="")
+DS21 <- read.csv(file = "NNS.GRA15.sample_ID_NS_uninf_vs_NS_GRA15_ctr.txt", sep="")
+DS22 <- read.csv(file = "NS.GRA1.sample_ID_NS_GRA1_vs_NS_PRU_ku.txt", sep="")
+DS23 <- read.csv(file = "NS.GRA1.sample_ID_NS_uninf_vs_NS_PRU_ku.txt", sep="")
+DS24 <- read.csv(file = "NS.GRA10.sample_ID_NS_GRA10_tetoff_vs_NS_GRA10_teton.txt", sep="")
+DS25 <- read.csv(file = "NS.GRA10.sample_ID_NS_uninf_vs_NS_GRA10_teton.txt", sep="")
+DS26 <- read.csv(file = "NS.ROP5.sample_ID_NS_ROP5_vs_NS_RH_ku.txt", sep="")
+DS27 <- read.csv(file = "NS.ROP5.sample_ID_NS_uninf_vs_NS_RH_ku.txt", sep="")
+DS28 <- read.csv(file = "NS.RPS13.sample_ID_NS_RPS13_tetoff_vs_NS_RPS13_teton.txt", sep="")
+DS29 <- read.csv(file = "NS.RPS13.sample_ID_NS_uninf_vs_NS_RPS13_teton.txt", sep="")
+
+#NSC WT
+DS30 <- read.csv(file = "NSC.WT.sample_ID_NS_EGS_vs_NS_uninf.txt", sep="")
+DS31 <- read.csv(file = "NSC.WT.sample_ID_NS_GRA15_ctr_vs_NS_uninf.txt", sep="")
+DS32 <- read.csv(file = "NSC.WT.sample_ID_NS_GT1_vs_NS_uninf.txt", sep="")
+DS33 <- read.csv(file = "NSC.WT.sample_ID_NS_ME49_vs_NS_uninf.txt", sep="")
+DS34 <- read.csv(file = "NSC.WT.sample_ID_NS_PBr_vs_NS_uninf.txt", sep="")
+DS35 <- read.csv(file = "NSC.WT.sample_ID_NS_RAY_vs_NS_uninf.txt", sep="")
+DS36 <- read.csv(file = "NSC.WT.sample_ID_NS_RH_ku_vs_NS_uninf.txt", sep="")
+DS37 <- read.csv(file = "NSC.WT.sample_ID_NS_RUB_vs_NS_uninf.txt", sep="")
+DS38 <- read.csv(file = "NSC.WT.sample_ID_NS_VEG_vs_NS_uninf.txt", sep="")
+
+DS_list <- as.list(DS1, DS2, DS3, DS4, DS5, DS6, DS7, DS8, DS9, DS10, DS11, DS12, DS13, DS14, DS15, DS16, DS17, DS18, DS19, DS20, DS21, DS22, DS23, DS24, DS25, DS26, DS27, DS28, DS29, DS30, DS31, DS32, DS33, DS34, DS35, DS36, DS37, DS38)
+
+
+
+
+#key epilepsy genes
+epi_genes <- read.csv(file = "Full_epilepsy_gene_list.csv", header = TRUE)
+```
+
+
+
+#Function that finds overlapping genes between data sets
+```{r}
+#Finds overlapping genes in datasets (just epilepsy related genes with p <0.05)
+overlapper <- function(...){
+  
+  
+  bigList <- list()
+  
+  for (i in list(...)){
+    i <- cbind(GeneID = rownames(i), i)
+    rownames(i) <- 1:nrow(i)
+    
+    sig_gene_df <- filter(i, i$padj < 0.05)
+    indx <- match(sig_gene_df$Gene_Name, epi_genes$IPA.Results.For.Epilepsy)
+    signif_epi_genes <- c(epi_genes$IPA.Results.For.Epilepsy[indx])
+    signif_epi_genes <- signif_epi_genes[!is.na(signif_epi_genes)]
+    
+    bigList <- signif_epi_genes
+  }
+  return (bigList)
+}
+
+OLgenes <- overlapper(DS11, DS30, DS12, DS32, DS13, DS33, DS15, DS31, DS17, DS36)
+
+
+
+
+
+
+```
+
+#Function that generates the pheatmap matrix
+```{r}
+hMatrix <- function(...){
+  hMat <- matrix(ncol = length(OLgenes), nrow = length(list(...)))
+  counter <- 0
+  
+  for (i in list(...)){
+    counter <- counter + 1
+    indx <- match(OLgenes, i$Gene_Name)
+    vec <- c(i$log2FoldChange[indx])
+    #vector with L2FC values of OLgenes present in a dataset
+    for (b in 1:ncol(hMat)){
+      hMat[counter, b] <- vec[b]
+    }
+  }
+  return (as.matrix(hMat))
+}
+
+heatMat <- hMatrix(DS11, DS30, DS12, DS32, DS13, DS33, DS15, DS31, DS17, DS36)
+
+```
+
+```{r}
+
+pheatmap(heatMat, labels_row = c("MM6 EGS WT", "NSC EGS WT", "MM6 GT1 WT", "NSC GT1 WT", "MM6 ME49 WT", "NSC ME49 WT", "MM6 PRU WT", "NSC PRU WT", "MM6 RH WT", "NSC RH WT"), labels_col = OLgenes, fontsize_col = 3, main = "MM6 WT Strains vs. NSC WT Strains", cluster_rows = FALSE, filename = "MM6 WT Strains vs. NSC WT Strains.pdf")
+
+
+
+```
+
+#Function that returns a data table of the number of pertubed epilepsy genes, up/down regualted
+```{r}
+GEtable <- function(...){
+  numGE <- c()
+  numSigGE <- c()
+  numUP <- c()
+  numDOWN <- c()
+  percentGE <- c()
+  ratioUD <- c()
+  numEpi <- c()
+  
+  for (i in list(...)){
+    i <- cbind(GeneID = rownames(i), i)
+    rownames(i) <- 1:nrow(i)
+    
+    siggy <- filter(i, i$padj<0.05)
+    siggy2 <- filter(siggy, abs(siggy$log2FoldChange) >1)
+    siggy3 <- na.omit(siggy2, cols = "Gene_Name")
+    num_sig_genes <- length(siggy3$Gene_Name)
+    
+    indx <- match(siggy2$Gene_Name, epi_genes$IPA.Results.For.Epilepsy)
+    signif_epi_genes <- c(epi_genes$IPA.Results.For.Epilepsy[indx])
+    signif_epi_genes <- signif_epi_genes[!is.na(signif_epi_genes)]
+    
+    indx2 <- match(i$Gene_Name, epi_genes$IPA.Results.For.Epilepsy)
+    total_num_epi_genes <- c(epi_genes$IPA.Results.For.Epilepsy[indx2])
+    total_num_epi_genes <- total_num_epi_genes[!is.na(total_num_epi_genes)]
+    
+    
+    #Total number of sig epi genes expressed
+    numSigGE <- c(numSigGE, length(signif_epi_genes))
+    
+    #total number significant genes expressed
+    numGE <- c(numGE, num_sig_genes)
+    
+    #total number of epilepsy genes expressed
+    numEpi <- c(numEpi, length(total_num_epi_genes))
+    
+    #percentage of epi genes expressed
+    percentGE <- c(percentGE, (length(signif_epi_genes) / length(total_num_epi_genes)) * 100)
+    
+    #number of upregulated and downregulated epi genes expressed
+    indx3 <- match(siggy2$Gene_Name, total_num_epi_genes)
+    logic_indx3 <- as.logical(indx3)
+    indx3_final <- which(logic_indx3)
+    sig_epi_df <- siggy2[indx3_final,]
+    sig_epi_df_up <- filter(sig_epi_df, sig_epi_df$log2FoldChange > 1)
+    sig_epi_df_down <- filter(sig_epi_df, sig_epi_df$log2FoldChange < -1)
+    
+    numUP <- c(numUP, length(sig_epi_df_up$Gene_Name))
+    numDOWN <- c(numDOWN, length(sig_epi_df_down$Gene_Name))
+    ratioUD <- c((numUP/numDOWN))
+    
+
+    
+    
+  }
+  
+  
+  #Data Frame:
+  basicDF <- data.frame(datasets = c("EGS", "PRU", "GT1", "ME49", "PBr", "RAY", "RH", "RUB", "VEG"), numEpi,  numSigGE, percentGE, numUP, numDOWN, ratioUD)
+  
+  niceTable <- gt(basicDF, rowname_col = "datasets")%>%
+    tab_header(title = "Quantification of Epilepsy Gene Expression in NSC WT Strains") %>%
+    cols_label(numEpi = "Number of Epilepsy Genes", numSigGE = "Number of Signficant Epilepsy Genes", percentGE = "Percent of Signficant Epilepsy Genes (%)", numUP = "Number of Up-Regulated Epilepsy Genes", numDOWN = "Number of Down-Regulated Epilepsy Genes", ratioUD = "Ratio of Up- to Down-Regulated Genes") %>%
+    tab_stubhead(label = "Data Set")%>%
+    fmt_number(columns = c(percentGE, ratioUD), decimals = 2)%>%
+    gtsave(filename = "NSC_WT_Quant.png")
+   
+  
+  
+  return (niceTable)
+  
+}
+
+GEtable(DS30, DS31, DS32, DS33, DS34, DS35, DS36, DS37, DS38)
+```
+
+
+#Function that returns the number of significant genes per dataset
+```{r}
+siggy_genes <- function(...){
+  
+  numSiggyGene <- c()
+  siggyUP <- c()
+  siggyDOWN <- c()
+  percentUP <- c()
+  percentDOWN <- c()
+  
+  for (i in list(...)){
+    i <- cbind(GeneID = rownames(i), i)
+    rownames(i) <- 1:nrow(i)
+    
+    siggy <- filter(i, i$padj<0.05)
+    siggy2 <- filter(siggy, abs(siggy$log2FoldChange) >1)
+    siggy3 <- na.omit(siggy2, cols = "Gene_Name")
+    num_sig_genes <- length(siggy3$Gene_Name)
+    
+    numSiggyGene <- c(numSiggyGene, num_sig_genes)
+    
+    filtUP <- filter(siggy3, siggy3$log2FoldChange > 1)
+    filtDOWN <- filter(siggy3, siggy3$log2FoldChange < -1)
+    U <- length(filtUP$Gene_Name)
+    D <- length(filtDOWN$Gene_Name)
+    siggyUP <- c(siggyUP, U)
+    siggyDOWN <- c(siggyDOWN, D)
+    
+    percentUP <- c(percentUP, ((U / num_sig_genes)*100))
+    percentDOWN <- c(percentDOWN, ((D / num_sig_genes)*100))
+    
+  
+  }  
+  
+  sexyDF <- data.frame(datasets = c("MM6 EGS WT", "MM6 GT1 WT", "MM6 ME49 WT", "MM6 PBr WT", "MM6 PRU WT", "MM6 RAY WT", "MM6 RH WT", "MM6 RUB WT", "MM6 VEG WT", "NSC EGS WT", "NSC PRU WT", "NSC GT1 WT", "NSC ME49 WT", "NSC PBr WT", "NSC RAY WT", "NSC RH WT", "NSC RUB WT", "NSC VEG WT"), numSiggyGene, siggyUP, siggyDOWN, percentUP, percentDOWN)
+  
+  niceTable <- gt(sexyDF, rowname_col = "datasets")%>%
+    tab_header(title = "Gene Expression Across WT Datasets") %>%
+    cols_label(numSiggyGene = "Number of Significant Genes", siggyUP = "Number of Significant Up-Regulated Genes", siggyDOWN = "Number of Significant Down-Regulated Genes", percentUP = "Percent Up-Regulated (%)", percentDOWN = "Percent Down-Regulated (%)") %>%
+    tab_stubhead(label = "Data Set")%>%
+    fmt_number(columns = c(percentUP, percentDOWN), decimals = 1)%>%
+    gtsave(filename = "WT_Gene_Expression_Quant.png")
+  
+  return (niceTable)
+  
+}
+
+siggy_genes(DS11, DS12, DS13, DS14, DS15, DS16, DS17, DS18, DS19, DS30, DS31, DS32, DS33, DS34, DS35, DS36, DS37, DS38)
+
+```
+
+
+
+#Function that returns the most up regulated genes in a dataset
+```{r}
+UpGenes <- function(dataset){
+  dataset <- cbind(GeneID = rownames(dataset), dataset)
+  rownames(dataset) <- 1:nrow(dataset)
+  
+  indx <- na.omit(match(epi_genes$IPA.Results.For.Epilepsy, dataset$Gene_Name))
+  uppers <- dataset[indx,]
+  
+  uppers1 <- filter(uppers, uppers$padj < 0.05)
+  uppers2 <- filter(uppers1, uppers1$log2FoldChange > 1)
+  uppers3 <- uppers2[complete.cases(uppers2[,9]),] 
+  uppers4 <- uppers3[order(uppers3[,3], decreasing = TRUE),]
+  uppers5 <- uppers4[1:20,]
+  uppers6 <- data.frame(GN = uppers5$Gene_Name, Des = uppers5$Gene_Description, padj = uppers5$padj, l2FC = uppers5$log2FoldChange)
+  
+  niceTable <- gt(uppers6)%>%
+    tab_header(title = "Top 20 Up Regulated Epilepsy Genes in NSC.WT.RH Dataset")%>%
+    fmt_number(columns = c(l2FC), decimals = 3)%>%
+    cols_label(GN = "Gene Name", Des = "Description", padj = "p-value", l2FC = "log2FoldChange")%>%
+    gtsave(filename = "Up_Genes_NSC_WT_RH.png")
+  
+  
+  
+  
+  return (niceTable)
+}
+UpGenes(DS36)
+
+```
+
+#Function that returns the most down regulated genes in a dataset
+```{r}
+DownGenes <- function(dataset){
+  dataset <- cbind(GeneID = rownames(dataset), dataset)
+  rownames(dataset) <- 1:nrow(dataset)
+  
+  indx <- na.omit(match(epi_genes$IPA.Results.For.Epilepsy, dataset$Gene_Name))
+  uppers <- dataset[indx,]
+  
+  uppers1 <- filter(uppers, uppers$padj < 0.05)
+  uppers2 <- filter(uppers1, uppers1$log2FoldChange < -1)
+  uppers3 <- uppers2[complete.cases(uppers2[,9]),] 
+  uppers4 <- uppers3[order(uppers3[,3], decreasing = FALSE),]
+  uppers5 <- uppers4[1:20,]
+  uppers6 <- data.frame(GN = uppers5$Gene_Name, Des = uppers5$Gene_Description, padj = uppers5$padj, l2FC = uppers5$log2FoldChange)
+  
+  niceTable <- gt(uppers6)%>%
+    tab_header(title = "Top 20 Down Regulated Epilepsy Genes in NSC.WT.RH Dataset")%>%
+    fmt_number(columns = c(l2FC), decimals = 3)%>%
+    cols_label(GN = "Gene Name", Des = "Description", padj = "p-value", l2FC = "log2FoldChange")%>%
+    gtsave(filename = "Down_Genes_NSC_WT_RH.png")
+  
+  
+  
+  
+  return (niceTable)
+}
+DownGenes(DS36)
+
+```
+
+
+
+#Percent Change Tables
+```{r}
+percentChange <- c(-33.3, -28.9, -28.2, -23.4, -20.8, -17.0, -13.8, -12.4, -11.2, -0.3)
+basicDF <- data.frame(datasets = c("MM6 ROP5", "MM6 GRA1", "MM6 RPS13", "NSC GRA10", "MM6 GRA10", "NSC RPS13", "NSC GRA15", "NSC ROP5", "NSC GRA1", "MM6 GRA15"), percentChange)
+  
+niceTable <- gt(basicDF, rowname_col = "datasets")%>%
+  tab_header(title = "Percent Change in Epilepsy Gene Expression in MM6 and NSC Cells After Knockout") %>%
+  cols_label(percentChange = "Percent Change (%)") %>%
+  tab_stubhead(label = "Data Set")
+
+
+#WT Strain percent epilepsy genes
+WTepiPercent <- c(24.9, 21.8, 19.2, 17.5, 16.2, 13.5, 12.3, 9.7, 7.6, 7.1, 6.4, 2.0, 1.0, 1.0)
+WTDF <- data.frame(datasets = c("MM6 RH", "NSC RH", "NSC RUB", "MM6 PRU", "MM6 EGS", "NSC EGS", "NSC PRU", "NSC RAY", "MM6 ME49", "NSC VEG", "NSC ME49", "MM6 GT1", "NSC GT1", "NSC PBr"),WTepiPercent)
+
+niceWTtable <- gt(WTDF, rowname_col = "datasets")%>%
+  tab_header(title = "Epilepsy Gene Expression in WT Strains")%>%
+  cols_label(WTepiPercent = "Percent of Significant Epilepsy Genes (%)")%>%
+  tab_stubhead(label = "Data Set")
+    
+niceWTtable
+
+
+```
+
+

@@ -1,0 +1,69 @@
+---
+title: "volcanoPlotTest"
+author: "Cy Chittenden"
+date: "8/4/2021"
+output: html_document
+---
+```{r}
+  if (!requireNamespace('BiocManager', quietly = TRUE))
+    install.packages('BiocManager')
+
+  BiocManager::install('EnhancedVolcano')
+  
+
+```
+
+```{r}
+library(EnhancedVolcano)
+```
+
+#import data
+```{r}
+toxoData <- read.csv(file = "MM6.WT.sample_ID_M_EGS_vs_M_uninf.txt", sep="")
+toxoData <- cbind(GeneID = rownames(toxoData), toxoData)
+rownames(toxoData) <- 1:nrow(toxoData)
+
+#key epilepsy genes
+epi_genes <- read.csv(file = "Full_epilepsy_gene_list.csv", header = TRUE)
+
+#dataframe of significant genes in dataset
+sig_gene_df <- filter(toxoData, toxoData$padj < 0.05 & (abs(toxoData$log2FoldChange)) > 1)
+
+
+indx <- match(sig_gene_df$Gene_Name, epi_genes$IPA.Results.For.Epilepsy)
+
+#epilepsy genes in dataframe of significant genes
+signif_epi_genes <- c(epi_genes$IPA.Results.For.Epilepsy[indx])
+
+```
+
+#Make Data frame
+```{r}
+volcTable <- data.frame(Gene_Symbol = c(toxoData$Gene_Name), padj = c(toxoData$padj), L2FC = c(toxoData$log2FoldChange))
+
+```
+
+```{r}
+a1 <- EnhancedVolcano(volcTable, 
+                      lab = c(toxoData$Gene_Name), 
+                      x = "L2FC", y = "padj", 
+                      axisLabSize = 10,
+                      xlim = c(-5, 5), 
+                      ylim = c(0, 5), 
+                      pCutoff = 0.05, 
+                      FCcutoff = 1, 
+                      pointSize = 0.5,
+                      labSize = 2, 
+                      #col = c('grey40', 'grey60', 'grey80', 'red3'),
+                      legendLabels=c('Not Sig.','Sig. Log (base 2) FC','Sig. p-value',
+                      'Sig. p-value & Log (base 2) FC'),
+                      legendPosition = 'right',
+                      legendLabSize = 10,
+                      legendIconSize = 3.0,
+                      selectLab = signif_epi_genes,
+                      title = "RNA-Seq Results",
+                      subtitle = "toxo.NS.RPS13.WT.sample_ID_NS_RPS13_tetoff_vs_NS_RPS13_teton", 
+                      subtitleLabSize = 10)
+                  
+a1
+```
