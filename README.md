@@ -1,2 +1,2 @@
-# GO-KEGG-Visualizations
-GO/KEGG Diagrams for private data
+# Differential Gene Expression Analysis Data Visualizations
+Differential Gene Expression Analysis Data Visualizations for private data
